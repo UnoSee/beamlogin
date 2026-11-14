@@ -120,7 +120,54 @@ and the only thing Beamlogin carries is the one-time code that Claude Code asks 
 
 ## Install
 
-### Option 1: download a release
+### Option 1: one-line install (recommended)
+
+**Linux and macOS:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/UnoSee/beamlogin/main/install.sh | sh
+```
+
+No `curl`? Use `wget -qO- https://raw.githubusercontent.com/UnoSee/beamlogin/main/install.sh | sh`.
+
+**Windows (PowerShell):**
+
+```powershell
+irm https://raw.githubusercontent.com/UnoSee/beamlogin/main/install.ps1 | iex
+```
+
+The installer:
+
+1. detects your system and processor (including Apple Silicon under Rosetta and Windows on
+   ARM),
+2. downloads the matching binary from the newest release, beta releases included,
+3. checks it against the release's `SHA256SUMS` and makes sure it runs,
+4. installs it as `beamlogin`:
+
+| System | Installs to |
+|---|---|
+| Linux and macOS, as root | `/usr/local/bin` |
+| Linux and macOS, as a normal user | `~/.local/bin`. If that isn't on your `PATH`, it prints the line to add it |
+| Windows | `%LOCALAPPDATA%\Programs\beamlogin`, added to your user `PATH`. No administrator rights needed |
+
+It needs no `sudo`. Settings, as environment variables:
+
+| Variable | Effect |
+|---|---|
+| `BEAMLOGIN_VERSION` | Install a specific release, such as `v0.4.0-beta.1` |
+| `BEAMLOGIN_INSTALL_DIR` | Install into another folder |
+| `BEAMLOGIN_NO_MODIFY_PATH=1` | Windows only: leave your `PATH` alone |
+
+For example, to install system-wide as a normal user:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/UnoSee/beamlogin/main/install.sh | sudo sh
+```
+
+Run the same command again to update. Want to read the script before running it? See
+[`install.sh`](install.sh) and [`install.ps1`](install.ps1).
+
+### Option 2: download a release by hand
 
 Ready-made binaries are on the
 [releases page](https://github.com/UnoSee/beamlogin/releases/tag/v0.4.0-beta.1). Pick the one for
@@ -180,7 +227,7 @@ Put `beamlogin.exe` in a folder on your `PATH`, or run it from where it is:
 The first time the phone page starts, Windows Firewall may ask whether to allow Beamlogin on the
 network. Allow it on **Private networks**, so your phone can reach the page.
 
-### Option 2: build from source
+### Option 3: build from source
 
 See [Building](#building). It takes one Docker command, and you don't need Rust installed.
 
@@ -210,8 +257,14 @@ irm https://claude.ai/install.ps1 | iex
 beamlogin logout
 ```
 
-Then delete the binary: `sudo rm /usr/local/bin/beamlogin` on Linux and macOS, or
-`beamlogin.exe` from wherever you put it on Windows.
+Then delete the binary. If you used the one-line installer:
+
+| System | Delete |
+|---|---|
+| Linux and macOS | `~/.local/bin/beamlogin`, or `/usr/local/bin/beamlogin` if you installed as root |
+| Windows | the folder `%LOCALAPPDATA%\Programs\beamlogin`, and its entry in your user `PATH` |
+
+Otherwise, delete it from wherever you put it.
 
 Beamlogin keeps no settings or data. The only file it ever writes is the optional token file
 from `beamlogin token --save` (Linux and macOS), and `beamlogin logout` deletes it.

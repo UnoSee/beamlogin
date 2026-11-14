@@ -76,6 +76,30 @@ jobs:
           BEAMLOGIN_BIN: dist/${{ matrix.bin }}
         run: python tests/test_flows.py
 
+  # The one-line installers, run as users would, against the newest published release.
+  installer:
+    if: "!startsWith(github.ref, 'refs/tags/')"
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-15-intel, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: install.sh
+        if: runner.os != 'Windows'
+        run: |
+          sh install.sh
+          "$HOME/.local/bin/beamlogin" --version
+      - name: install.ps1
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          Get-Content -Raw install.ps1 | Invoke-Expression
+          $user = [Environment]::GetEnvironmentVariable('Path', 'User')
+          if ($user -notlike "*$env:LOCALAPPDATA\Programs\beamlogin*") { throw 'install folder not added to the user PATH' }
+          beamlogin --version
+
   release:
     needs: test
     if: startsWith(github.ref, 'refs/tags/v')
