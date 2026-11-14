@@ -584,6 +584,8 @@ fn cmd_login(args: &Args) -> i32 {
     let mut auth_url: Option<String> = None;
     let mut view: Option<View> = None;
     let (mut sent, mut enter_sent, mut hinted) = (false, false, false);
+    // When Enter was last pressed for Claude's "Press Enter" prompt, and how often it was retried.
+    let (mut enter_at, mut enter_retries) = (0.0f64, 0u8);
     let mut outcome: Option<Outcome> = None;
 
     'main: loop {
@@ -624,6 +626,7 @@ fn cmd_login(args: &Args) -> i32 {
                 if !enter_sent && mentions_press_enter(&strip_ansi(&after)) {
                     pty.write(b"\r");
                     enter_sent = true;
+                    enter_at = now();
                 }
             } else if auth_url.is_none() {
                 auth_url = find_auth_url(&raw);
@@ -640,6 +643,13 @@ fn cmd_login(args: &Args) -> i32 {
                 }
             }
             }
+        }
+        // A key pressed just before Claude switches its terminal mode can be dropped. If Claude is
+        // still waiting a few seconds after Enter, press it again.
+        if enter_sent && enter_retries < 3 && now() - enter_at > 3.0 {
+            pty.write(b"\r");
+            enter_at = now();
+            enter_retries += 1;
         }
         if !sent && auth_url.is_none() && !hinted && now() - started > 25.0 {
             hinted = true;

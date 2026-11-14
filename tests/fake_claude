@@ -40,7 +40,8 @@ def read_line_raw():
     import tty
     fd = 0
     old = termios.tcgetattr(fd)
-    tty.setraw(fd)
+    # Like the real CLI, keep keys typed before raw mode starts (no TCSAFLUSH).
+    tty.setraw(fd, termios.TCSANOW)
     try:
         buf = ""
         while True:
