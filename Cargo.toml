@@ -1,0 +1,30 @@
+[package]
+name = "beamlogin"
+version = "0.4.0-beta.1"
+edition = "2021"
+description = "Sign in to Claude Code on a headless machine using your phone"
+license = "MIT"
+repository = "https://github.com/UnoSee/beamlogin"
+publish = false
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Cryptography",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Console",
+    "Win32_System_IO",
+    "Win32_System_Pipes",
+    "Win32_System_Threading",
+] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

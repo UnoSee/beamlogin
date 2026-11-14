@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""A stand-in for the `claude` CLI, used only by the tests.
+
+It imitates the parts beamlogin relies on: `auth login` prints a sign-in URL
+(with ANSI styling and an OSC 8 hyperlink), waits for a pasted code in raw
+mode, then asks for Enter; `auth status`, `auth logout`, `-p` and a plain
+interactive start.
+"""
+import json
+import os
+import sys
+
+STATE = os.environ.get("FAKE_STATE", "/tmp/fake_claude.state")
+GOOD_CODE = os.environ.get("FAKE_CODE", "goodcode123#state456")
+GOOD_TOKEN = os.environ.get("FAKE_TOKEN", "sk-ant-oat01-" + "A" * 40)
+args = sys.argv[1:]
+out = sys.stdout
+
+
+if os.name == "nt":
+    # Let the console interpret ANSI escapes, as the real CLI does.
+    import ctypes
+    k32 = ctypes.windll.kernel32
+    h = k32.GetStdHandle(-11)
+    mode = ctypes.c_uint32()
+    if k32.GetConsoleMode(h, ctypes.byref(mode)):
+        k32.SetConsoleMode(h, mode.value | 0x0004)
+
+
+def read_line_raw():
+    if os.name == "nt":
+        import msvcrt
+        buf = ""
+        while True:
+            c = msvcrt.getwch()
+            if c in "\r\n":
+                return buf
+            buf += c
+    import termios
+    import tty
+    fd = 0
+    old = termios.tcgetattr(fd)
+    tty.setraw(fd)
+    try:
+        buf = ""
+        while True:
+            c = os.read(fd, 1).decode()
+            if c in "\r\n":
+                return buf
+            buf += c
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+
+if args[:1] == ["--version"]:
+    print("2.1.300 (Claude Code)")
+    sys.exit(0)
+
+if args[:2] == ["auth", "login"]:
+    url = ("https://claude.ai/oauth/authorize?code=true&client_id=9d1c250a&response_type=code"
+           "&redirect_uri=https%3A%2F%2Fconsole.anthropic.com%2Foauth%2Fcode%2Fcallback"
+           "&scope=org%3Acreate_api_key+user%3Aprofile+user%3Ainference"
+           "&code_challenge=" + "x" * 43 + "&code_challenge_method=S256&state=" + "y" * 43)
+    out.write("\x1b[2J\x1b[H\x1b[?25l\x1b[1mBrowser didn't open? Use the url below to sign in:\x1b[0m\r\n\r\n")
+    out.write(f"\x1b]8;;{url}\x07\x1b[2m{url}\x1b[0m\x1b]8;;\x07\r\n\r\n")
+    out.write("Paste code here if prompted > ")
+    out.flush()
+    code = read_line_raw()
+    if code == GOOD_CODE:
+        out.write("\r\n\x1b[32mLogin successful.\x1b[0m Press \x1b[1mEnter\x1b[0m to continue…")
+        out.flush()
+        read_line_raw()
+        with open(STATE, "w") as f:
+            f.write("logged-in")
+        out.write("\r\n")
+        sys.exit(0)
+    out.write("\r\nOAuth error: Invalid code\r\n")
+    sys.exit(1)
+
+if args[:2] == ["auth", "status"]:
+    if os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"):
+        print(json.dumps({"loggedIn": True, "authMethod": "oauth_token"}))
+        sys.exit(0)
+    if os.path.exists(STATE):
+        print(json.dumps({"loggedIn": True, "authMethod": "claude.ai", "email": "tester@example.com"}))
+        sys.exit(0)
+    print(json.dumps({"loggedIn": False, "authMethod": "none"}))
+    sys.exit(1)
+
+if args[:2] == ["auth", "logout"]:
+    if os.path.exists(STATE):
+        os.remove(STATE)
+    print("Successfully logged out from your Anthropic account.")
+    sys.exit(0)
+
+if args[:1] == ["-p"]:
+    tok = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")
+    if tok == GOOD_TOKEN or (not tok and os.path.exists(STATE)):
+        print("OK")
+        sys.exit(0)
+    print(f"API Error: 401 OAuth access token has been revoked ({tok})", file=sys.stderr)
+    sys.exit(1)
+
+print("FAKE INTERACTIVE SESSION token=" + ("set" if os.environ.get("CLAUDE_CODE_OAUTH_TOKEN") else "unset")
+      + " state=" + ("yes" if os.path.exists(STATE) else "no"))
