@@ -72,9 +72,15 @@ main() {
     # --- which release? ---------------------------------------------------------------------
     version="${BEAMLOGIN_VERSION:-}"
     if [ -z "$version" ]; then
-        # The newest release, including pre-releases (GitHub's "latest" skips those).
-        version="$(fetch_text "https://api.github.com/repos/$REPO/releases?per_page=1" 2>/dev/null \
-            | grep '"tag_name"' | head -n 1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/' || true)"
+        # The newest release, including pre-releases (GitHub's "latest" skips those). The
+        # releases feed comes first: the API allows only 60 anonymous requests an hour per
+        # address, which shared networks can use up.
+        version="$(fetch_text "https://github.com/$REPO/releases.atom" 2>/dev/null \
+            | grep -o 'releases/tag/[^"<]*' | head -n 1 | sed 's#releases/tag/##' || true)"
+        if [ -z "$version" ]; then
+            version="$(fetch_text "https://api.github.com/repos/$REPO/releases?per_page=1" 2>/dev/null \
+                | grep '"tag_name"' | head -n 1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/' || true)"
+        fi
         [ -n "$version" ] || fail "Couldn't find the newest release on GitHub." \
             "Check the internet connection, or set BEAMLOGIN_VERSION, for example:" \
             "  curl -fsSL https://raw.githubusercontent.com/$REPO/main/install.sh | BEAMLOGIN_VERSION=v0.4.0-beta.1 sh"

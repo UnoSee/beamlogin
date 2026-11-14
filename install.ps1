@@ -57,11 +57,21 @@
     # --- which release? ---------------------------------------------------------------------
     $version = $env:BEAMLOGIN_VERSION
     if (-not $version) {
-        # The newest release, including pre-releases (GitHub's "latest" skips those).
+        # The newest release, including pre-releases (GitHub's "latest" skips those). The
+        # releases feed comes first: the API allows only 60 anonymous requests an hour per
+        # address, which shared networks can use up.
         try {
-            $releases = Invoke-RestMethod -UseBasicParsing "https://api.github.com/repos/$Repo/releases?per_page=1"
-            $version = @($releases)[0].tag_name
+            $feed = (Invoke-WebRequest -UseBasicParsing -Uri "https://github.com/$Repo/releases.atom").Content
+            if ($feed -is [byte[]]) { $feed = [Text.Encoding]::UTF8.GetString($feed) }
+            $m = [regex]::Match($feed, 'releases/tag/([^"<]+)')
+            if ($m.Success) { $version = $m.Groups[1].Value }
         } catch { }
+        if (-not $version) {
+            try {
+                $releases = Invoke-RestMethod -UseBasicParsing "https://api.github.com/repos/$Repo/releases?per_page=1"
+                $version = @($releases)[0].tag_name
+            } catch { }
+        }
         if (-not $version) {
             Fail @("Couldn't find the newest release on GitHub.",
                    'Check the internet connection, or set the version first, for example:',
